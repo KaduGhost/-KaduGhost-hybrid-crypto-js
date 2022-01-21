@@ -351,7 +351,7 @@ module.exports = {
     return Array.isArray(obj) ? obj : [obj];
   }
 };
-},{"../package.json":52}],4:[function(require,module,exports){
+},{"../package.json":51}],4:[function(require,module,exports){
 "use strict";
 
 function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); keys.push.apply(keys, symbols); } return keys; }
@@ -1562,7 +1562,7 @@ function _createCipher(options) {
   return cipher;
 }
 
-},{"./cipher":11,"./cipherModes":12,"./forge":16,"./util":48}],8:[function(require,module,exports){
+},{"./cipher":12,"./cipherModes":13,"./forge":16,"./util":47}],8:[function(require,module,exports){
 /**
  * A Javascript implementation of AES Cipher Suites for TLS.
  *
@@ -1846,7 +1846,100 @@ function compareMacs(key, mac1, mac2) {
   return mac1 === mac2;
 }
 
-},{"./aes":7,"./forge":16,"./tls":47}],9:[function(require,module,exports){
+},{"./aes":7,"./forge":16,"./tls":46}],9:[function(require,module,exports){
+/**
+ * Copyright (c) 2019 Digital Bazaar, Inc.
+ */
+
+var forge = require('./forge');
+require('./asn1');
+var asn1 = forge.asn1;
+
+exports.privateKeyValidator = {
+  // PrivateKeyInfo
+  name: 'PrivateKeyInfo',
+  tagClass: asn1.Class.UNIVERSAL,
+  type: asn1.Type.SEQUENCE,
+  constructed: true,
+  value: [{
+    // Version (INTEGER)
+    name: 'PrivateKeyInfo.version',
+    tagClass: asn1.Class.UNIVERSAL,
+    type: asn1.Type.INTEGER,
+    constructed: false,
+    capture: 'privateKeyVersion'
+  }, {
+    // privateKeyAlgorithm
+    name: 'PrivateKeyInfo.privateKeyAlgorithm',
+    tagClass: asn1.Class.UNIVERSAL,
+    type: asn1.Type.SEQUENCE,
+    constructed: true,
+    value: [{
+      name: 'AlgorithmIdentifier.algorithm',
+      tagClass: asn1.Class.UNIVERSAL,
+      type: asn1.Type.OID,
+      constructed: false,
+      capture: 'privateKeyOid'
+    }]
+  }, {
+    // PrivateKey
+    name: 'PrivateKeyInfo',
+    tagClass: asn1.Class.UNIVERSAL,
+    type: asn1.Type.OCTETSTRING,
+    constructed: false,
+    capture: 'privateKey'
+  }]
+};
+
+exports.publicKeyValidator = {
+  name: 'SubjectPublicKeyInfo',
+  tagClass: asn1.Class.UNIVERSAL,
+  type: asn1.Type.SEQUENCE,
+  constructed: true,
+  captureAsn1: 'subjectPublicKeyInfo',
+  value: [{
+    name: 'SubjectPublicKeyInfo.AlgorithmIdentifier',
+    tagClass: asn1.Class.UNIVERSAL,
+    type: asn1.Type.SEQUENCE,
+    constructed: true,
+    value: [{
+      name: 'AlgorithmIdentifier.algorithm',
+      tagClass: asn1.Class.UNIVERSAL,
+      type: asn1.Type.OID,
+      constructed: false,
+      capture: 'publicKeyOid'
+    }]
+  },
+  // capture group for ed25519PublicKey
+  {
+    tagClass: asn1.Class.UNIVERSAL,
+    type: asn1.Type.BITSTRING,
+    constructed: false,
+    composed: true,
+    captureBitStringValue: 'ed25519PublicKey'
+  }
+  // FIXME: this is capture group for rsaPublicKey, use it in this API or
+  // discard?
+  /* {
+    // subjectPublicKey
+    name: 'SubjectPublicKeyInfo.subjectPublicKey',
+    tagClass: asn1.Class.UNIVERSAL,
+    type: asn1.Type.BITSTRING,
+    constructed: false,
+    value: [{
+      // RSAPublicKey
+      name: 'SubjectPublicKeyInfo.subjectPublicKey.RSAPublicKey',
+      tagClass: asn1.Class.UNIVERSAL,
+      type: asn1.Type.SEQUENCE,
+      constructed: true,
+      optional: true,
+      captureAsn1: 'rsaPublicKey'
+    }]
+  } */
+  ]
+};
+
+},{"./asn1":10,"./forge":16}],10:[function(require,module,exports){
 /**
  * Javascript implementation of Abstract Syntax Notation Number One.
  *
@@ -3256,7 +3349,7 @@ asn1.prettyPrint = function(obj, level, indentation) {
   return rval;
 };
 
-},{"./forge":16,"./oids":27,"./util":48}],10:[function(require,module,exports){
+},{"./forge":16,"./oids":27,"./util":47}],11:[function(require,module,exports){
 (function (Buffer){
 /**
  * Base-N/Base-X encoding/decoding functions.
@@ -3446,7 +3539,7 @@ function _encodeWithByteBuffer(input, alphabet) {
 }
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":6}],11:[function(require,module,exports){
+},{"buffer":6}],12:[function(require,module,exports){
 /**
  * Cipher base API.
  *
@@ -3678,7 +3771,7 @@ BlockCipher.prototype.finish = function(pad) {
   return true;
 };
 
-},{"./forge":16,"./util":48}],12:[function(require,module,exports){
+},{"./forge":16,"./util":47}],13:[function(require,module,exports){
 /**
  * Supported cipher modes.
  *
@@ -3800,7 +3893,7 @@ modes.cbc.prototype.start = function(options) {
     throw new Error('Invalid IV parameter.');
   } else {
     // save IV as "previous" block
-    this._iv = transformIV(options.iv);
+    this._iv = transformIV(options.iv, this.blockSize);
     this._prev = this._iv.slice(0);
   }
 };
@@ -3896,7 +3989,7 @@ modes.cfb.prototype.start = function(options) {
     throw new Error('Invalid IV parameter.');
   }
   // use IV as first input
-  this._iv = transformIV(options.iv);
+  this._iv = transformIV(options.iv, this.blockSize);
   this._inBlock = this._iv.slice(0);
   this._partialBytes = 0;
 };
@@ -4040,7 +4133,7 @@ modes.ofb.prototype.start = function(options) {
     throw new Error('Invalid IV parameter.');
   }
   // use IV as first input
-  this._iv = transformIV(options.iv);
+  this._iv = transformIV(options.iv, this.blockSize);
   this._inBlock = this._iv.slice(0);
   this._partialBytes = 0;
 };
@@ -4125,7 +4218,7 @@ modes.ctr.prototype.start = function(options) {
     throw new Error('Invalid IV parameter.');
   }
   // use IV as first input
-  this._iv = transformIV(options.iv);
+  this._iv = transformIV(options.iv, this.blockSize);
   this._inBlock = this._iv.slice(0);
   this._partialBytes = 0;
 };
@@ -4635,7 +4728,7 @@ modes.gcm.prototype.generateSubHashTable = function(mid, bits) {
 
 /** Utility functions */
 
-function transformIV(iv) {
+function transformIV(iv, blockSize) {
   if(typeof iv === 'string') {
     // convert iv string into byte buffer
     iv = forge.util.createBuffer(iv);
@@ -4649,9 +4742,21 @@ function transformIV(iv) {
       iv.putByte(tmp[i]);
     }
   }
+
+  if(iv.length() < blockSize) {
+    throw new Error(
+      'Invalid IV length; got ' + iv.length() +
+      ' bytes and expected ' + blockSize + ' bytes.');
+  }
+
   if(!forge.util.isArray(iv)) {
     // convert iv byte buffer into 32-bit integer array
-    iv = [iv.getInt32(), iv.getInt32(), iv.getInt32(), iv.getInt32()];
+    var ints = [];
+    var blocks = blockSize / 4;
+    for(var i = 0; i < blocks; ++i) {
+      ints.push(iv.getInt32());
+    }
+    iv = ints;
   }
 
   return iv;
@@ -4667,87 +4772,7 @@ function from64To32(num) {
   return [(num / 0x100000000) | 0, num & 0xFFFFFFFF];
 }
 
-},{"./forge":16,"./util":48}],13:[function(require,module,exports){
-/**
- * Debugging support for web applications.
- *
- * @author David I. Lehn <dlehn@digitalbazaar.com>
- *
- * Copyright 2008-2013 Digital Bazaar, Inc.
- */
-var forge = require('./forge');
-
-/* DEBUG API */
-module.exports = forge.debug = forge.debug || {};
-
-// Private storage for debugging.
-// Useful to expose data that is otherwise unviewable behind closures.
-// NOTE: remember that this can hold references to data and cause leaks!
-// format is "forge._debug.<modulename>.<dataname> = data"
-// Example:
-// (function() {
-//   var cat = 'forge.test.Test'; // debugging category
-//   var sState = {...}; // local state
-//   forge.debug.set(cat, 'sState', sState);
-// })();
-forge.debug.storage = {};
-
-/**
- * Gets debug data. Omit name for all cat data  Omit name and cat for
- * all data.
- *
- * @param cat name of debugging category.
- * @param name name of data to get (optional).
- * @return object with requested debug data or undefined.
- */
-forge.debug.get = function(cat, name) {
-  var rval;
-  if(typeof(cat) === 'undefined') {
-    rval = forge.debug.storage;
-  } else if(cat in forge.debug.storage) {
-    if(typeof(name) === 'undefined') {
-      rval = forge.debug.storage[cat];
-    } else {
-      rval = forge.debug.storage[cat][name];
-    }
-  }
-  return rval;
-};
-
-/**
- * Sets debug data.
- *
- * @param cat name of debugging category.
- * @param name name of data to set.
- * @param data data to set.
- */
-forge.debug.set = function(cat, name, data) {
-  if(!(cat in forge.debug.storage)) {
-    forge.debug.storage[cat] = {};
-  }
-  forge.debug.storage[cat][name] = data;
-};
-
-/**
- * Clears debug data. Omit name for all cat data. Omit name and cat for
- * all data.
- *
- * @param cat name of debugging category.
- * @param name name of data to clear or omit to clear entire category.
- */
-forge.debug.clear = function(cat, name) {
-  if(typeof(cat) === 'undefined') {
-    forge.debug.storage = {};
-  } else if(cat in forge.debug.storage) {
-    if(typeof(name) === 'undefined') {
-      delete forge.debug.storage[cat];
-    } else {
-      delete forge.debug.storage[cat][name];
-    }
-  }
-};
-
-},{"./forge":16}],14:[function(require,module,exports){
+},{"./forge":16,"./util":47}],14:[function(require,module,exports){
 /**
  * DES (Data Encryption Standard) implementation.
  *
@@ -5245,12 +5270,12 @@ function _createCipher(options) {
   return cipher;
 }
 
-},{"./cipher":11,"./cipherModes":12,"./forge":16,"./util":48}],15:[function(require,module,exports){
+},{"./cipher":12,"./cipherModes":13,"./forge":16,"./util":47}],15:[function(require,module,exports){
 (function (Buffer){
 /**
  * JavaScript implementation of Ed25519.
  *
- * Copyright (c) 2017-2018 Digital Bazaar, Inc.
+ * Copyright (c) 2017-2019 Digital Bazaar, Inc.
  *
  * This implementation is based on the most excellent TweetNaCl which is
  * in the public domain. Many thanks to its contributors:
@@ -5262,6 +5287,9 @@ require('./jsbn');
 require('./random');
 require('./sha512');
 require('./util');
+var asn1Validator = require('./asn1-validator');
+var publicKeyValidator = asn1Validator.publicKeyValidator;
+var privateKeyValidator = asn1Validator.privateKeyValidator;
 
 if(typeof BigInteger === 'undefined') {
   var BigInteger = forge.jsbn.BigInteger;
@@ -5313,6 +5341,75 @@ ed25519.generateKeyPair = function(options) {
   return {publicKey: pk, privateKey: sk};
 };
 
+/**
+ * Converts a private key from a RFC8410 ASN.1 encoding.
+ *
+ * @param obj - The asn1 representation of a private key.
+ *
+ * @returns {Object} keyInfo - The key information.
+ * @returns {Buffer|Uint8Array} keyInfo.privateKeyBytes - 32 private key bytes.
+ */
+ed25519.privateKeyFromAsn1 = function(obj) {
+  var capture = {};
+  var errors = [];
+  var valid = forge.asn1.validate(obj, privateKeyValidator, capture, errors);
+  if(!valid) {
+    var error = new Error('Invalid Key.');
+    error.errors = errors;
+    throw error;
+  }
+  var oid = forge.asn1.derToOid(capture.privateKeyOid);
+  var ed25519Oid = forge.oids.EdDSA25519;
+  if(oid !== ed25519Oid) {
+    throw new Error('Invalid OID "' + oid + '"; OID must be "' +
+      ed25519Oid + '".');
+  }
+  var privateKey = capture.privateKey;
+  // manually extract the private key bytes from nested octet string, see FIXME:
+  // https://github.com/digitalbazaar/forge/blob/master/lib/asn1.js#L542
+  var privateKeyBytes = messageToNativeBuffer({
+    message: forge.asn1.fromDer(privateKey).value,
+    encoding: 'binary'
+  });
+  // TODO: RFC8410 specifies a format for encoding the public key bytes along
+  // with the private key bytes. `publicKeyBytes` can be returned in the
+  // future. https://tools.ietf.org/html/rfc8410#section-10.3
+  return {privateKeyBytes: privateKeyBytes};
+};
+
+/**
+ * Converts a public key from a RFC8410 ASN.1 encoding.
+ *
+ * @param obj - The asn1 representation of a public key.
+ *
+ * @return {Buffer|Uint8Array} - 32 public key bytes.
+ */
+ed25519.publicKeyFromAsn1 = function(obj) {
+  // get SubjectPublicKeyInfo
+  var capture = {};
+  var errors = [];
+  var valid = forge.asn1.validate(obj, publicKeyValidator, capture, errors);
+  if(!valid) {
+    var error = new Error('Invalid Key.');
+    error.errors = errors;
+    throw error;
+  }
+  var oid = forge.asn1.derToOid(capture.publicKeyOid);
+  var ed25519Oid = forge.oids.EdDSA25519;
+  if(oid !== ed25519Oid) {
+    throw new Error('Invalid OID "' + oid + '"; OID must be "' +
+      ed25519Oid + '".');
+  }
+  var publicKeyBytes = capture.ed25519PublicKey;
+  if(publicKeyBytes.length !== ed25519.constants.PUBLIC_KEY_BYTE_LENGTH) {
+    throw new Error('Key length is invalid.');
+  }
+  return messageToNativeBuffer({
+    message: publicKeyBytes,
+    encoding: 'binary'
+  });
+};
+
 ed25519.publicKeyFromPrivateKey = function(options) {
   options = options || {};
   var privateKey = messageToNativeBuffer({
@@ -5338,9 +5435,13 @@ ed25519.sign = function(options) {
     message: options.privateKey,
     encoding: 'binary'
   });
-  if(privateKey.length !== ed25519.constants.PRIVATE_KEY_BYTE_LENGTH) {
+  if(privateKey.length === ed25519.constants.SEED_BYTE_LENGTH) {
+    var keyPair = ed25519.generateKeyPair({seed: privateKey});
+    privateKey = keyPair.privateKey;
+  } else if(privateKey.length !== ed25519.constants.PRIVATE_KEY_BYTE_LENGTH) {
     throw new TypeError(
       '"options.privateKey" must have a byte length of ' +
+      ed25519.constants.SEED_BYTE_LENGTH + ' or ' +
       ed25519.constants.PRIVATE_KEY_BYTE_LENGTH);
   }
 
@@ -5396,7 +5497,7 @@ ed25519.verify = function(options) {
 
 function messageToNativeBuffer(options) {
   var message = options.message;
-  if(message instanceof Uint8Array) {
+  if(message instanceof Uint8Array || message instanceof NativeBuffer) {
     return message;
   }
 
@@ -6245,7 +6346,7 @@ function M(o, a, b) {
 }
 
 }).call(this,require("buffer").Buffer)
-},{"./forge":16,"./jsbn":19,"./random":39,"./sha512":44,"./util":48,"buffer":6}],16:[function(require,module,exports){
+},{"./asn1-validator":9,"./forge":16,"./jsbn":19,"./random":39,"./sha512":44,"./util":47,"buffer":6}],16:[function(require,module,exports){
 /**
  * Node.js module for Forge.
  *
@@ -6408,7 +6509,7 @@ hmac.create = function() {
   return ctx;
 };
 
-},{"./forge":16,"./md":23,"./util":48}],18:[function(require,module,exports){
+},{"./forge":16,"./md":23,"./util":47}],18:[function(require,module,exports){
 /**
  * Node.js module for Forge.
  *
@@ -6421,7 +6522,6 @@ require('./aes');
 require('./aesCipherSuites');
 require('./asn1');
 require('./cipher');
-require('./debug');
 require('./des');
 require('./ed25519');
 require('./hmac');
@@ -6441,11 +6541,10 @@ require('./pss');
 require('./random');
 require('./rc2');
 require('./ssh');
-require('./task');
 require('./tls');
 require('./util');
 
-},{"./aes":7,"./aesCipherSuites":8,"./asn1":9,"./cipher":11,"./debug":13,"./des":14,"./ed25519":15,"./forge":16,"./hmac":17,"./kem":20,"./log":21,"./md.all":22,"./mgf1":26,"./pbkdf2":29,"./pem":30,"./pkcs1":31,"./pkcs12":32,"./pkcs7":33,"./pki":35,"./prime":36,"./prng":37,"./pss":38,"./random":39,"./rc2":40,"./ssh":45,"./task":46,"./tls":47,"./util":48}],19:[function(require,module,exports){
+},{"./aes":7,"./aesCipherSuites":8,"./asn1":10,"./cipher":12,"./des":14,"./ed25519":15,"./forge":16,"./hmac":17,"./kem":20,"./log":21,"./md.all":22,"./mgf1":26,"./pbkdf2":29,"./pem":30,"./pkcs1":31,"./pkcs12":32,"./pkcs7":33,"./pki":35,"./prime":36,"./prng":37,"./pss":38,"./random":39,"./rc2":40,"./ssh":45,"./tls":46,"./util":47}],19:[function(require,module,exports){
 // Copyright (c) 2005  Tom Wu
 // All Rights Reserved.
 // See "LICENSE" for details.
@@ -7881,7 +7980,7 @@ function _createKDF(kdf, md, counterStart, digestLength) {
   };
 }
 
-},{"./forge":16,"./jsbn":19,"./random":39,"./util":48}],21:[function(require,module,exports){
+},{"./forge":16,"./jsbn":19,"./random":39,"./util":47}],21:[function(require,module,exports){
 /**
  * Cross-browser support for logging in a web application.
  *
@@ -8170,7 +8269,7 @@ if(typeof(console) !== 'undefined' && 'log' in console) {
 }
 
 /*
- * Check for logging control query vars.
+ * Check for logging control query vars in current URL.
  *
  * console.level=<level-name>
  * Set's the console log level by name.  Useful to override defaults and
@@ -8181,16 +8280,18 @@ if(typeof(console) !== 'undefined' && 'log' in console) {
  * after console.level is processed.  Useful to force a level of verbosity
  * that could otherwise be limited by a user config.
  */
-if(sConsoleLogger !== null) {
-  var query = forge.util.getQueryVariables();
-  if('console.level' in query) {
+if(sConsoleLogger !== null &&
+  typeof window !== 'undefined' && window.location
+) {
+  var query = new URL(window.location.href).searchParams;
+  if(query.has('console.level')) {
     // set with last value
     forge.log.setLevel(
-      sConsoleLogger, query['console.level'].slice(-1)[0]);
+      sConsoleLogger, query.get('console.level').slice(-1)[0]);
   }
-  if('console.lock' in query) {
+  if(query.has('console.lock')) {
     // set with last value
-    var lock = query['console.lock'].slice(-1)[0];
+    var lock = query.get('console.lock').slice(-1)[0];
     if(lock == 'true') {
       forge.log.lock(sConsoleLogger);
     }
@@ -8200,7 +8301,7 @@ if(sConsoleLogger !== null) {
 // provide public access to console logger
 forge.log.consoleLogger = sConsoleLogger;
 
-},{"./forge":16,"./util":48}],22:[function(require,module,exports){
+},{"./forge":16,"./util":47}],22:[function(require,module,exports){
 /**
  * Node.js module for all known Forge message digests.
  *
@@ -8519,7 +8620,7 @@ function _update(s, w, bytes) {
   }
 }
 
-},{"./forge":16,"./md":23,"./util":48}],25:[function(require,module,exports){
+},{"./forge":16,"./md":23,"./util":47}],25:[function(require,module,exports){
 /**
  * Node.js module for Forge mask generation functions.
  *
@@ -8592,7 +8693,7 @@ mgf1.create = function(md) {
   return mgf;
 };
 
-},{"./forge":16,"./util":48}],27:[function(require,module,exports){
+},{"./forge":16,"./util":47}],27:[function(require,module,exports){
 /**
  * Object IDs for ASN.1.
  *
@@ -8629,12 +8730,16 @@ _IN('1.2.840.113549.1.1.10', 'RSASSA-PSS');
 _IN('1.2.840.113549.1.1.11', 'sha256WithRSAEncryption');
 _IN('1.2.840.113549.1.1.12', 'sha384WithRSAEncryption');
 _IN('1.2.840.113549.1.1.13', 'sha512WithRSAEncryption');
+// Edwards-curve Digital Signature Algorithm (EdDSA) Ed25519
+_IN('1.3.101.112', 'EdDSA25519');
 
 _IN('1.2.840.10040.4.3', 'dsa-with-sha1');
 
 _IN('1.3.14.3.2.7', 'desCBC');
 
 _IN('1.3.14.3.2.26', 'sha1');
+// Deprecated equivalent of sha1WithRSAEncryption
+_IN('1.3.14.3.2.29', 'sha1WithRSASignature');
 _IN('2.16.840.1.101.3.4.2.1', 'sha256');
 _IN('2.16.840.1.101.3.4.2.2', 'sha384');
 _IN('2.16.840.1.101.3.4.2.3', 'sha512');
@@ -8697,13 +8802,21 @@ _IN('2.16.840.1.101.3.4.1.42', 'aes256-CBC');
 
 // certificate issuer/subject OIDs
 _IN('2.5.4.3', 'commonName');
-_IN('2.5.4.5', 'serialName');
+_IN('2.5.4.4', 'surname');
+_IN('2.5.4.5', 'serialNumber');
 _IN('2.5.4.6', 'countryName');
 _IN('2.5.4.7', 'localityName');
 _IN('2.5.4.8', 'stateOrProvinceName');
+_IN('2.5.4.9', 'streetAddress');
 _IN('2.5.4.10', 'organizationName');
 _IN('2.5.4.11', 'organizationalUnitName');
+_IN('2.5.4.12', 'title');
 _IN('2.5.4.13', 'description');
+_IN('2.5.4.15', 'businessCategory');
+_IN('2.5.4.17', 'postalCode');
+_IN('2.5.4.42', 'givenName');
+_IN('1.3.6.1.4.1.311.60.2.1.2', 'jurisdictionOfIncorporationStateOrProvinceName');
+_IN('1.3.6.1.4.1.311.60.2.1.3', 'jurisdictionOfIncorporationCountryName');
 
 // X.509 extension OIDs
 _IN('2.16.840.1.113730.1.1', 'nsCertType');
@@ -9782,7 +9895,7 @@ function createPbkdf2Params(salt, countBytes, dkLen, prfAlgorithm) {
   return params;
 }
 
-},{"./aes":7,"./asn1":9,"./des":14,"./forge":16,"./md":23,"./oids":27,"./pbkdf2":29,"./pem":30,"./random":39,"./rc2":40,"./rsa":41,"./util":48}],29:[function(require,module,exports){
+},{"./aes":7,"./asn1":10,"./des":14,"./forge":16,"./md":23,"./oids":27,"./pbkdf2":29,"./pem":30,"./random":39,"./rc2":40,"./rsa":41,"./util":47}],29:[function(require,module,exports){
 (function (Buffer){
 /**
  * Password-Based Key-Derivation Function #2 implementation.
@@ -9997,7 +10110,7 @@ module.exports = forge.pbkdf2 = pkcs5.pbkdf2 = function(
 };
 
 }).call(this,require("buffer").Buffer)
-},{"./forge":16,"./hmac":17,"./md":23,"./util":48,"buffer":6,"crypto":6}],30:[function(require,module,exports){
+},{"./forge":16,"./hmac":17,"./md":23,"./util":47,"buffer":6,"crypto":6}],30:[function(require,module,exports){
 /**
  * Javascript implementation of basic PEM (Privacy Enhanced Mail) algorithms.
  *
@@ -10106,8 +10219,15 @@ pem.decode = function(str) {
       break;
     }
 
+    // accept "NEW CERTIFICATE REQUEST" as "CERTIFICATE REQUEST"
+    // https://datatracker.ietf.org/doc/html/rfc7468#section-7
+    var type = match[1];
+    if(type === 'NEW CERTIFICATE REQUEST') {
+      type = 'CERTIFICATE REQUEST';
+    }
+
     var msg = {
-      type: match[1],
+      type: type,
       procType: null,
       contentDomain: null,
       dekInfo: null,
@@ -10229,7 +10349,7 @@ function ltrim(str) {
   return str.replace(/^\s+/, '');
 }
 
-},{"./forge":16,"./util":48}],31:[function(require,module,exports){
+},{"./forge":16,"./util":47}],31:[function(require,module,exports){
 /**
  * Partial implementation of PKCS#1 v2.2: RSA-OEAP
  *
@@ -10507,7 +10627,7 @@ function rsa_mgf1(seed, maskLength, hash) {
   return t.substring(0, maskLength);
 }
 
-},{"./forge":16,"./random":39,"./sha1":42,"./util":48}],32:[function(require,module,exports){
+},{"./forge":16,"./random":39,"./sha1":42,"./util":47}],32:[function(require,module,exports){
 /**
  * Javascript implementation of PKCS#12.
  *
@@ -11583,7 +11703,7 @@ p12.toPkcs12Asn1 = function(key, cert, password, options) {
  */
 p12.generateKey = forge.pbe.generatePkcs12Key;
 
-},{"./asn1":9,"./forge":16,"./hmac":17,"./oids":27,"./pbe":28,"./pkcs7asn1":34,"./random":39,"./rsa":41,"./sha1":42,"./util":48,"./x509":49}],33:[function(require,module,exports){
+},{"./asn1":10,"./forge":16,"./hmac":17,"./oids":27,"./pbe":28,"./pkcs7asn1":34,"./random":39,"./rsa":41,"./sha1":42,"./util":47,"./x509":48}],33:[function(require,module,exports){
 /**
  * Javascript implementation of PKCS#7 v1.5.
  *
@@ -12423,7 +12543,7 @@ function _recipientFromAsn1(obj) {
     serialNumber: forge.util.createBuffer(capture.serial).toHex(),
     encryptedContent: {
       algorithm: asn1.derToOid(capture.encAlgorithm),
-      parameter: capture.encParameter.value,
+      parameter: capture.encParameter ? capture.encParameter.value : undefined,
       content: capture.encKey
     }
   };
@@ -12710,8 +12830,11 @@ function _encryptedContentToAsn1(ec) {
       asn1.create(asn1.Class.UNIVERSAL, asn1.Type.OID, false,
         asn1.oidToDer(ec.algorithm).getBytes()),
       // Parameters (IV)
-      asn1.create(asn1.Class.UNIVERSAL, asn1.Type.OCTETSTRING, false,
-        ec.parameter.getBytes())
+      !ec.parameter ?
+        undefined :
+        asn1.create(
+          asn1.Class.UNIVERSAL, asn1.Type.OCTETSTRING, false,
+          ec.parameter.getBytes())
     ]),
     // [0] EncryptedContent
     asn1.create(asn1.Class.CONTEXT_SPECIFIC, 0, true, [
@@ -12842,7 +12965,7 @@ function _decryptContent(msg) {
   }
 }
 
-},{"./aes":7,"./asn1":9,"./des":14,"./forge":16,"./oids":27,"./pem":30,"./pkcs7asn1":34,"./random":39,"./util":48,"./x509":49}],34:[function(require,module,exports){
+},{"./aes":7,"./asn1":10,"./des":14,"./forge":16,"./oids":27,"./pem":30,"./pkcs7asn1":34,"./random":39,"./util":47,"./x509":48}],34:[function(require,module,exports){
 /**
  * Javascript implementation of ASN.1 validators for PKCS#7 v1.5.
  *
@@ -13242,7 +13365,8 @@ p7v.recipientInfoValidator = {
       name: 'RecipientInfo.keyEncryptionAlgorithm.parameter',
       tagClass: asn1.Class.UNIVERSAL,
       constructed: false,
-      captureAsn1: 'encParameter'
+      captureAsn1: 'encParameter',
+      optional: true
     }]
   }, {
     name: 'RecipientInfo.encryptedKey',
@@ -13253,7 +13377,7 @@ p7v.recipientInfoValidator = {
   }]
 };
 
-},{"./asn1":9,"./forge":16,"./util":48}],35:[function(require,module,exports){
+},{"./asn1":10,"./forge":16,"./util":47}],35:[function(require,module,exports){
 /**
  * Javascript implementation of a basic Public Key Infrastructure, including
  * support for RSA public and private keys.
@@ -13357,7 +13481,7 @@ pki.privateKeyInfoToPem = function(pki, maxline) {
   return forge.pem.encode(msg, {maxline: maxline});
 };
 
-},{"./asn1":9,"./forge":16,"./oids":27,"./pbe":28,"./pbkdf2":29,"./pem":30,"./pkcs12":32,"./pss":38,"./rsa":41,"./util":48,"./x509":49}],36:[function(require,module,exports){
+},{"./asn1":10,"./forge":16,"./oids":27,"./pbe":28,"./pbkdf2":29,"./pem":30,"./pkcs12":32,"./pss":38,"./rsa":41,"./util":47,"./x509":48}],36:[function(require,module,exports){
 /**
  * Prime number generation API.
  *
@@ -13656,7 +13780,7 @@ function getMillerRabinTests(bits) {
 
 })();
 
-},{"./forge":16,"./jsbn":19,"./random":39,"./util":48}],37:[function(require,module,exports){
+},{"./forge":16,"./jsbn":19,"./random":39,"./util":47}],37:[function(require,module,exports){
 (function (process){
 /**
  * A javascript implementation of a cryptographically-secure
@@ -13977,7 +14101,7 @@ prng.create = function(plugin) {
           // throw in more pseudo random
           next = seed >>> (i << 3);
           next ^= Math.floor(Math.random() * 0x0100);
-          b.putByte(String.fromCharCode(next & 0xFF));
+          b.putByte(next & 0xFF);
         }
       }
     }
@@ -14079,7 +14203,7 @@ prng.create = function(plugin) {
 };
 
 }).call(this,require('_process'))
-},{"./forge":16,"./util":48,"_process":50,"crypto":6}],38:[function(require,module,exports){
+},{"./forge":16,"./util":47,"_process":49,"crypto":6}],38:[function(require,module,exports){
 /**
  * Javascript implementation of PKCS#1 PSS signature padding.
  *
@@ -14322,7 +14446,7 @@ pss.create = function(options) {
   return pssobj;
 };
 
-},{"./forge":16,"./random":39,"./util":48}],39:[function(require,module,exports){
+},{"./forge":16,"./random":39,"./util":47}],39:[function(require,module,exports){
 /**
  * An API for getting cryptographically-secure random bytes. The bytes are
  * generated using the Fortuna algorithm devised by Bruce Schneier and
@@ -14515,7 +14639,7 @@ module.exports = forge.random;
 
 })();
 
-},{"./aes":7,"./forge":16,"./prng":37,"./sha256":43,"./util":48}],40:[function(require,module,exports){
+},{"./aes":7,"./forge":16,"./prng":37,"./sha256":43,"./util":47}],40:[function(require,module,exports){
 /**
  * RC2 implementation.
  *
@@ -14927,7 +15051,7 @@ forge.rc2.createDecryptionCipher = function(key, bits) {
   return createCipher(key, bits, false);
 };
 
-},{"./forge":16,"./util":48}],41:[function(require,module,exports){
+},{"./forge":16,"./util":47}],41:[function(require,module,exports){
 /**
  * Javascript implementation of basic RSA algorithms.
  *
@@ -16787,7 +16911,7 @@ function _base64ToBigInt(b64) {
   return new BigInteger(forge.util.bytesToHex(forge.util.decode64(b64)), 16);
 }
 
-},{"./asn1":9,"./forge":16,"./jsbn":19,"./oids":27,"./pkcs1":31,"./prime":36,"./random":39,"./util":48,"crypto":6}],42:[function(require,module,exports){
+},{"./asn1":10,"./forge":16,"./jsbn":19,"./oids":27,"./pkcs1":31,"./prime":36,"./random":39,"./util":47,"crypto":6}],42:[function(require,module,exports){
 /**
  * Secure Hash Algorithm with 160-bit digest (SHA-1) implementation.
  *
@@ -17108,7 +17232,7 @@ function _update(s, w, bytes) {
   }
 }
 
-},{"./forge":16,"./md":23,"./util":48}],43:[function(require,module,exports){
+},{"./forge":16,"./md":23,"./util":47}],43:[function(require,module,exports){
 /**
  * Secure Hash Algorithm with 256-bit digest (SHA-256) implementation.
  *
@@ -17437,7 +17561,7 @@ function _update(s, w, bytes) {
   }
 }
 
-},{"./forge":16,"./md":23,"./util":48}],44:[function(require,module,exports){
+},{"./forge":16,"./md":23,"./util":47}],44:[function(require,module,exports){
 /**
  * Secure Hash Algorithm with a 1024-bit block size implementation.
  *
@@ -18000,7 +18124,7 @@ function _update(s, w, bytes) {
   }
 }
 
-},{"./forge":16,"./md":23,"./util":48}],45:[function(require,module,exports){
+},{"./forge":16,"./md":23,"./util":47}],45:[function(require,module,exports){
 /**
  * Functions to output keys in SSH-friendly formats.
  *
@@ -18238,734 +18362,7 @@ function _sha1() {
   return sha.digest();
 }
 
-},{"./aes":7,"./forge":16,"./hmac":17,"./md5":24,"./sha1":42,"./util":48}],46:[function(require,module,exports){
-/**
- * Support for concurrent task management and synchronization in web
- * applications.
- *
- * @author Dave Longley
- * @author David I. Lehn <dlehn@digitalbazaar.com>
- *
- * Copyright (c) 2009-2013 Digital Bazaar, Inc.
- */
-var forge = require('./forge');
-require('./debug');
-require('./log');
-require('./util');
-
-// logging category
-var cat = 'forge.task';
-
-// verbose level
-// 0: off, 1: a little, 2: a whole lot
-// Verbose debug logging is surrounded by a level check to avoid the
-// performance issues with even calling the logging code regardless if it
-// is actually logged.  For performance reasons this should not be set to 2
-// for production use.
-// ex: if(sVL >= 2) forge.log.verbose(....)
-var sVL = 0;
-
-// track tasks for debugging
-var sTasks = {};
-var sNextTaskId = 0;
-// debug access
-forge.debug.set(cat, 'tasks', sTasks);
-
-// a map of task type to task queue
-var sTaskQueues = {};
-// debug access
-forge.debug.set(cat, 'queues', sTaskQueues);
-
-// name for unnamed tasks
-var sNoTaskName = '?';
-
-// maximum number of doNext() recursions before a context swap occurs
-// FIXME: might need to tweak this based on the browser
-var sMaxRecursions = 30;
-
-// time slice for doing tasks before a context swap occurs
-// FIXME: might need to tweak this based on the browser
-var sTimeSlice = 20;
-
-/**
- * Task states.
- *
- * READY: ready to start processing
- * RUNNING: task or a subtask is running
- * BLOCKED: task is waiting to acquire N permits to continue
- * SLEEPING: task is sleeping for a period of time
- * DONE: task is done
- * ERROR: task has an error
- */
-var READY = 'ready';
-var RUNNING = 'running';
-var BLOCKED = 'blocked';
-var SLEEPING = 'sleeping';
-var DONE = 'done';
-var ERROR = 'error';
-
-/**
- * Task actions.  Used to control state transitions.
- *
- * STOP: stop processing
- * START: start processing tasks
- * BLOCK: block task from continuing until 1 or more permits are released
- * UNBLOCK: release one or more permits
- * SLEEP: sleep for a period of time
- * WAKEUP: wakeup early from SLEEPING state
- * CANCEL: cancel further tasks
- * FAIL: a failure occured
- */
-var STOP = 'stop';
-var START = 'start';
-var BLOCK = 'block';
-var UNBLOCK = 'unblock';
-var SLEEP = 'sleep';
-var WAKEUP = 'wakeup';
-var CANCEL = 'cancel';
-var FAIL = 'fail';
-
-/**
- * State transition table.
- *
- * nextState = sStateTable[currentState][action]
- */
-var sStateTable = {};
-
-sStateTable[READY] = {};
-sStateTable[READY][STOP] = READY;
-sStateTable[READY][START] = RUNNING;
-sStateTable[READY][CANCEL] = DONE;
-sStateTable[READY][FAIL] = ERROR;
-
-sStateTable[RUNNING] = {};
-sStateTable[RUNNING][STOP] = READY;
-sStateTable[RUNNING][START] = RUNNING;
-sStateTable[RUNNING][BLOCK] = BLOCKED;
-sStateTable[RUNNING][UNBLOCK] = RUNNING;
-sStateTable[RUNNING][SLEEP] = SLEEPING;
-sStateTable[RUNNING][WAKEUP] = RUNNING;
-sStateTable[RUNNING][CANCEL] = DONE;
-sStateTable[RUNNING][FAIL] = ERROR;
-
-sStateTable[BLOCKED] = {};
-sStateTable[BLOCKED][STOP] = BLOCKED;
-sStateTable[BLOCKED][START] = BLOCKED;
-sStateTable[BLOCKED][BLOCK] = BLOCKED;
-sStateTable[BLOCKED][UNBLOCK] = BLOCKED;
-sStateTable[BLOCKED][SLEEP] = BLOCKED;
-sStateTable[BLOCKED][WAKEUP] = BLOCKED;
-sStateTable[BLOCKED][CANCEL] = DONE;
-sStateTable[BLOCKED][FAIL] = ERROR;
-
-sStateTable[SLEEPING] = {};
-sStateTable[SLEEPING][STOP] = SLEEPING;
-sStateTable[SLEEPING][START] = SLEEPING;
-sStateTable[SLEEPING][BLOCK] = SLEEPING;
-sStateTable[SLEEPING][UNBLOCK] = SLEEPING;
-sStateTable[SLEEPING][SLEEP] = SLEEPING;
-sStateTable[SLEEPING][WAKEUP] = SLEEPING;
-sStateTable[SLEEPING][CANCEL] = DONE;
-sStateTable[SLEEPING][FAIL] = ERROR;
-
-sStateTable[DONE] = {};
-sStateTable[DONE][STOP] = DONE;
-sStateTable[DONE][START] = DONE;
-sStateTable[DONE][BLOCK] = DONE;
-sStateTable[DONE][UNBLOCK] = DONE;
-sStateTable[DONE][SLEEP] = DONE;
-sStateTable[DONE][WAKEUP] = DONE;
-sStateTable[DONE][CANCEL] = DONE;
-sStateTable[DONE][FAIL] = ERROR;
-
-sStateTable[ERROR] = {};
-sStateTable[ERROR][STOP] = ERROR;
-sStateTable[ERROR][START] = ERROR;
-sStateTable[ERROR][BLOCK] = ERROR;
-sStateTable[ERROR][UNBLOCK] = ERROR;
-sStateTable[ERROR][SLEEP] = ERROR;
-sStateTable[ERROR][WAKEUP] = ERROR;
-sStateTable[ERROR][CANCEL] = ERROR;
-sStateTable[ERROR][FAIL] = ERROR;
-
-/**
- * Creates a new task.
- *
- * @param options options for this task
- *   run: the run function for the task (required)
- *   name: the run function for the task (optional)
- *   parent: parent of this task (optional)
- *
- * @return the empty task.
- */
-var Task = function(options) {
-  // task id
-  this.id = -1;
-
-  // task name
-  this.name = options.name || sNoTaskName;
-
-  // task has no parent
-  this.parent = options.parent || null;
-
-  // save run function
-  this.run = options.run;
-
-  // create a queue of subtasks to run
-  this.subtasks = [];
-
-  // error flag
-  this.error = false;
-
-  // state of the task
-  this.state = READY;
-
-  // number of times the task has been blocked (also the number
-  // of permits needed to be released to continue running)
-  this.blocks = 0;
-
-  // timeout id when sleeping
-  this.timeoutId = null;
-
-  // no swap time yet
-  this.swapTime = null;
-
-  // no user data
-  this.userData = null;
-
-  // initialize task
-  // FIXME: deal with overflow
-  this.id = sNextTaskId++;
-  sTasks[this.id] = this;
-  if(sVL >= 1) {
-    forge.log.verbose(cat, '[%s][%s] init', this.id, this.name, this);
-  }
-};
-
-/**
- * Logs debug information on this task and the system state.
- */
-Task.prototype.debug = function(msg) {
-  msg = msg || '';
-  forge.log.debug(cat, msg,
-    '[%s][%s] task:', this.id, this.name, this,
-    'subtasks:', this.subtasks.length,
-    'queue:', sTaskQueues);
-};
-
-/**
- * Adds a subtask to run after task.doNext() or task.fail() is called.
- *
- * @param name human readable name for this task (optional).
- * @param subrun a function to run that takes the current task as
- *          its first parameter.
- *
- * @return the current task (useful for chaining next() calls).
- */
-Task.prototype.next = function(name, subrun) {
-  // juggle parameters if it looks like no name is given
-  if(typeof(name) === 'function') {
-    subrun = name;
-
-    // inherit parent's name
-    name = this.name;
-  }
-  // create subtask, set parent to this task, propagate callbacks
-  var subtask = new Task({
-    run: subrun,
-    name: name,
-    parent: this
-  });
-  // start subtasks running
-  subtask.state = RUNNING;
-  subtask.type = this.type;
-  subtask.successCallback = this.successCallback || null;
-  subtask.failureCallback = this.failureCallback || null;
-
-  // queue a new subtask
-  this.subtasks.push(subtask);
-
-  return this;
-};
-
-/**
- * Adds subtasks to run in parallel after task.doNext() or task.fail()
- * is called.
- *
- * @param name human readable name for this task (optional).
- * @param subrun functions to run that take the current task as
- *          their first parameter.
- *
- * @return the current task (useful for chaining next() calls).
- */
-Task.prototype.parallel = function(name, subrun) {
-  // juggle parameters if it looks like no name is given
-  if(forge.util.isArray(name)) {
-    subrun = name;
-
-    // inherit parent's name
-    name = this.name;
-  }
-  // Wrap parallel tasks in a regular task so they are started at the
-  // proper time.
-  return this.next(name, function(task) {
-    // block waiting for subtasks
-    var ptask = task;
-    ptask.block(subrun.length);
-
-    // we pass the iterator from the loop below as a parameter
-    // to a function because it is otherwise included in the
-    // closure and changes as the loop changes -- causing i
-    // to always be set to its highest value
-    var startParallelTask = function(pname, pi) {
-      forge.task.start({
-        type: pname,
-        run: function(task) {
-           subrun[pi](task);
-        },
-        success: function(task) {
-           ptask.unblock();
-        },
-        failure: function(task) {
-           ptask.unblock();
-        }
-      });
-    };
-
-    for(var i = 0; i < subrun.length; i++) {
-      // Type must be unique so task starts in parallel:
-      //    name + private string + task id + sub-task index
-      // start tasks in parallel and unblock when the finish
-      var pname = name + '__parallel-' + task.id + '-' + i;
-      var pi = i;
-      startParallelTask(pname, pi);
-    }
-  });
-};
-
-/**
- * Stops a running task.
- */
-Task.prototype.stop = function() {
-  this.state = sStateTable[this.state][STOP];
-};
-
-/**
- * Starts running a task.
- */
-Task.prototype.start = function() {
-  this.error = false;
-  this.state = sStateTable[this.state][START];
-
-  // try to restart
-  if(this.state === RUNNING) {
-    this.start = new Date();
-    this.run(this);
-    runNext(this, 0);
-  }
-};
-
-/**
- * Blocks a task until it one or more permits have been released. The
- * task will not resume until the requested number of permits have
- * been released with call(s) to unblock().
- *
- * @param n number of permits to wait for(default: 1).
- */
-Task.prototype.block = function(n) {
-  n = typeof(n) === 'undefined' ? 1 : n;
-  this.blocks += n;
-  if(this.blocks > 0) {
-    this.state = sStateTable[this.state][BLOCK];
-  }
-};
-
-/**
- * Releases a permit to unblock a task. If a task was blocked by
- * requesting N permits via block(), then it will only continue
- * running once enough permits have been released via unblock() calls.
- *
- * If multiple processes need to synchronize with a single task then
- * use a condition variable (see forge.task.createCondition). It is
- * an error to unblock a task more times than it has been blocked.
- *
- * @param n number of permits to release (default: 1).
- *
- * @return the current block count (task is unblocked when count is 0)
- */
-Task.prototype.unblock = function(n) {
-  n = typeof(n) === 'undefined' ? 1 : n;
-  this.blocks -= n;
-  if(this.blocks === 0 && this.state !== DONE) {
-    this.state = RUNNING;
-    runNext(this, 0);
-  }
-  return this.blocks;
-};
-
-/**
- * Sleep for a period of time before resuming tasks.
- *
- * @param n number of milliseconds to sleep (default: 0).
- */
-Task.prototype.sleep = function(n) {
-  n = typeof(n) === 'undefined' ? 0 : n;
-  this.state = sStateTable[this.state][SLEEP];
-  var self = this;
-  this.timeoutId = setTimeout(function() {
-    self.timeoutId = null;
-    self.state = RUNNING;
-    runNext(self, 0);
-  }, n);
-};
-
-/**
- * Waits on a condition variable until notified. The next task will
- * not be scheduled until notification. A condition variable can be
- * created with forge.task.createCondition().
- *
- * Once cond.notify() is called, the task will continue.
- *
- * @param cond the condition variable to wait on.
- */
-Task.prototype.wait = function(cond) {
-  cond.wait(this);
-};
-
-/**
- * If sleeping, wakeup and continue running tasks.
- */
-Task.prototype.wakeup = function() {
-  if(this.state === SLEEPING) {
-    cancelTimeout(this.timeoutId);
-    this.timeoutId = null;
-    this.state = RUNNING;
-    runNext(this, 0);
-  }
-};
-
-/**
- * Cancel all remaining subtasks of this task.
- */
-Task.prototype.cancel = function() {
-  this.state = sStateTable[this.state][CANCEL];
-  // remove permits needed
-  this.permitsNeeded = 0;
-  // cancel timeouts
-  if(this.timeoutId !== null) {
-    cancelTimeout(this.timeoutId);
-    this.timeoutId = null;
-  }
-  // remove subtasks
-  this.subtasks = [];
-};
-
-/**
- * Finishes this task with failure and sets error flag. The entire
- * task will be aborted unless the next task that should execute
- * is passed as a parameter. This allows levels of subtasks to be
- * skipped. For instance, to abort only this tasks's subtasks, then
- * call fail(task.parent). To abort this task's subtasks and its
- * parent's subtasks, call fail(task.parent.parent). To abort
- * all tasks and simply call the task callback, call fail() or
- * fail(null).
- *
- * The task callback (success or failure) will always, eventually, be
- * called.
- *
- * @param next the task to continue at, or null to abort entirely.
- */
-Task.prototype.fail = function(next) {
-  // set error flag
-  this.error = true;
-
-  // finish task
-  finish(this, true);
-
-  if(next) {
-    // propagate task info
-    next.error = this.error;
-    next.swapTime = this.swapTime;
-    next.userData = this.userData;
-
-    // do next task as specified
-    runNext(next, 0);
-  } else {
-    if(this.parent !== null) {
-      // finish root task (ensures it is removed from task queue)
-      var parent = this.parent;
-      while(parent.parent !== null) {
-        // propagate task info
-        parent.error = this.error;
-        parent.swapTime = this.swapTime;
-        parent.userData = this.userData;
-        parent = parent.parent;
-      }
-      finish(parent, true);
-    }
-
-    // call failure callback if one exists
-    if(this.failureCallback) {
-      this.failureCallback(this);
-    }
-  }
-};
-
-/**
- * Asynchronously start a task.
- *
- * @param task the task to start.
- */
-var start = function(task) {
-  task.error = false;
-  task.state = sStateTable[task.state][START];
-  setTimeout(function() {
-    if(task.state === RUNNING) {
-      task.swapTime = +new Date();
-      task.run(task);
-      runNext(task, 0);
-    }
-  }, 0);
-};
-
-/**
- * Run the next subtask or finish this task.
- *
- * @param task the task to process.
- * @param recurse the recursion count.
- */
-var runNext = function(task, recurse) {
-  // get time since last context swap (ms), if enough time has passed set
-  // swap to true to indicate that doNext was performed asynchronously
-  // also, if recurse is too high do asynchronously
-  var swap =
-    (recurse > sMaxRecursions) ||
-    (+new Date() - task.swapTime) > sTimeSlice;
-
-  var doNext = function(recurse) {
-    recurse++;
-    if(task.state === RUNNING) {
-      if(swap) {
-        // update swap time
-        task.swapTime = +new Date();
-      }
-
-      if(task.subtasks.length > 0) {
-        // run next subtask
-        var subtask = task.subtasks.shift();
-        subtask.error = task.error;
-        subtask.swapTime = task.swapTime;
-        subtask.userData = task.userData;
-        subtask.run(subtask);
-        if(!subtask.error) {
-           runNext(subtask, recurse);
-        }
-      } else {
-        finish(task);
-
-        if(!task.error) {
-          // chain back up and run parent
-          if(task.parent !== null) {
-            // propagate task info
-            task.parent.error = task.error;
-            task.parent.swapTime = task.swapTime;
-            task.parent.userData = task.userData;
-
-            // no subtasks left, call run next subtask on parent
-            runNext(task.parent, recurse);
-          }
-        }
-      }
-    }
-  };
-
-  if(swap) {
-    // we're swapping, so run asynchronously
-    setTimeout(doNext, 0);
-  } else {
-    // not swapping, so run synchronously
-    doNext(recurse);
-  }
-};
-
-/**
- * Finishes a task and looks for the next task in the queue to start.
- *
- * @param task the task to finish.
- * @param suppressCallbacks true to suppress callbacks.
- */
-var finish = function(task, suppressCallbacks) {
-  // subtask is now done
-  task.state = DONE;
-
-  delete sTasks[task.id];
-  if(sVL >= 1) {
-    forge.log.verbose(cat, '[%s][%s] finish',
-      task.id, task.name, task);
-  }
-
-  // only do queue processing for root tasks
-  if(task.parent === null) {
-    // report error if queue is missing
-    if(!(task.type in sTaskQueues)) {
-      forge.log.error(cat,
-        '[%s][%s] task queue missing [%s]',
-        task.id, task.name, task.type);
-    } else if(sTaskQueues[task.type].length === 0) {
-      // report error if queue is empty
-      forge.log.error(cat,
-        '[%s][%s] task queue empty [%s]',
-        task.id, task.name, task.type);
-    } else if(sTaskQueues[task.type][0] !== task) {
-      // report error if this task isn't the first in the queue
-      forge.log.error(cat,
-        '[%s][%s] task not first in queue [%s]',
-        task.id, task.name, task.type);
-    } else {
-      // remove ourselves from the queue
-      sTaskQueues[task.type].shift();
-      // clean up queue if it is empty
-      if(sTaskQueues[task.type].length === 0) {
-        if(sVL >= 1) {
-          forge.log.verbose(cat, '[%s][%s] delete queue [%s]',
-            task.id, task.name, task.type);
-        }
-        /* Note: Only a task can delete a queue of its own type. This
-         is used as a way to synchronize tasks. If a queue for a certain
-         task type exists, then a task of that type is running.
-         */
-        delete sTaskQueues[task.type];
-      } else {
-        // dequeue the next task and start it
-        if(sVL >= 1) {
-          forge.log.verbose(cat,
-            '[%s][%s] queue start next [%s] remain:%s',
-            task.id, task.name, task.type,
-            sTaskQueues[task.type].length);
-        }
-        sTaskQueues[task.type][0].start();
-      }
-    }
-
-    if(!suppressCallbacks) {
-      // call final callback if one exists
-      if(task.error && task.failureCallback) {
-        task.failureCallback(task);
-      } else if(!task.error && task.successCallback) {
-        task.successCallback(task);
-      }
-    }
-  }
-};
-
-/* Tasks API */
-module.exports = forge.task = forge.task || {};
-
-/**
- * Starts a new task that will run the passed function asynchronously.
- *
- * In order to finish the task, either task.doNext() or task.fail()
- * *must* be called.
- *
- * The task must have a type (a string identifier) that can be used to
- * synchronize it with other tasks of the same type. That type can also
- * be used to cancel tasks that haven't started yet.
- *
- * To start a task, the following object must be provided as a parameter
- * (each function takes a task object as its first parameter):
- *
- * {
- *   type: the type of task.
- *   run: the function to run to execute the task.
- *   success: a callback to call when the task succeeds (optional).
- *   failure: a callback to call when the task fails (optional).
- * }
- *
- * @param options the object as described above.
- */
-forge.task.start = function(options) {
-  // create a new task
-  var task = new Task({
-    run: options.run,
-    name: options.name || sNoTaskName
-  });
-  task.type = options.type;
-  task.successCallback = options.success || null;
-  task.failureCallback = options.failure || null;
-
-  // append the task onto the appropriate queue
-  if(!(task.type in sTaskQueues)) {
-    if(sVL >= 1) {
-      forge.log.verbose(cat, '[%s][%s] create queue [%s]',
-        task.id, task.name, task.type);
-    }
-    // create the queue with the new task
-    sTaskQueues[task.type] = [task];
-    start(task);
-  } else {
-    // push the task onto the queue, it will be run after a task
-    // with the same type completes
-    sTaskQueues[options.type].push(task);
-  }
-};
-
-/**
- * Cancels all tasks of the given type that haven't started yet.
- *
- * @param type the type of task to cancel.
- */
-forge.task.cancel = function(type) {
-  // find the task queue
-  if(type in sTaskQueues) {
-    // empty all but the current task from the queue
-    sTaskQueues[type] = [sTaskQueues[type][0]];
-  }
-};
-
-/**
- * Creates a condition variable to synchronize tasks. To make a task wait
- * on the condition variable, call task.wait(condition). To notify all
- * tasks that are waiting, call condition.notify().
- *
- * @return the condition variable.
- */
-forge.task.createCondition = function() {
-  var cond = {
-    // all tasks that are blocked
-    tasks: {}
-  };
-
-  /**
-   * Causes the given task to block until notify is called. If the task
-   * is already waiting on this condition then this is a no-op.
-   *
-   * @param task the task to cause to wait.
-   */
-  cond.wait = function(task) {
-    // only block once
-    if(!(task.id in cond.tasks)) {
-       task.block();
-       cond.tasks[task.id] = task;
-    }
-  };
-
-  /**
-   * Notifies all waiting tasks to wake up.
-   */
-  cond.notify = function() {
-    // since unblock() will run the next task from here, make sure to
-    // clear the condition's blocked task list before unblocking
-    var tmp = cond.tasks;
-    cond.tasks = {};
-    for(var id in tmp) {
-      tmp[id].unblock();
-    }
-  };
-
-  return cond;
-};
-
-},{"./debug":13,"./forge":16,"./log":21,"./util":48}],47:[function(require,module,exports){
+},{"./aes":7,"./forge":16,"./hmac":17,"./md5":24,"./sha1":42,"./util":47}],46:[function(require,module,exports){
 /**
  * A Javascript implementation of Transport Layer Security (TLS).
  *
@@ -23249,7 +22646,7 @@ forge.tls.createSessionCache = tls.createSessionCache;
  */
 forge.tls.createConnection = tls.createConnection;
 
-},{"./asn1":9,"./forge":16,"./hmac":17,"./md5":24,"./pem":30,"./pki":35,"./random":39,"./sha1":42,"./util":48}],48:[function(require,module,exports){
+},{"./asn1":10,"./forge":16,"./hmac":17,"./md5":24,"./pem":30,"./pki":35,"./random":39,"./sha1":42,"./util":47}],47:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,setImmediate){
 /**
  * Utility functions for web applications.
@@ -23532,7 +22929,7 @@ util.ByteStringBuffer.prototype.fillWithByte = function(b, n) {
 /**
  * Puts bytes in this buffer.
  *
- * @param bytes the bytes (as a UTF-8 encoded string) to put.
+ * @param bytes the bytes (as a binary encoded string) to put.
  *
  * @return this buffer.
  */
@@ -23820,11 +23217,13 @@ util.ByteStringBuffer.prototype.getSignedInt = function(n) {
 };
 
 /**
- * Reads bytes out into a UTF-8 string and clears them from the buffer.
+ * Reads bytes out as a binary encoded string and clears them from the
+ * buffer. Note that the resulting string is binary encoded (in node.js this
+ * encoding is referred to as `binary`, it is *not* `utf8`).
  *
  * @param count the number of bytes to read, undefined or null for all.
  *
- * @return a UTF-8 string of bytes.
+ * @return a binary encoded string of bytes.
  */
 util.ByteStringBuffer.prototype.getBytes = function(count) {
   var rval;
@@ -23844,12 +23243,12 @@ util.ByteStringBuffer.prototype.getBytes = function(count) {
 };
 
 /**
- * Gets a UTF-8 encoded string of the bytes from this buffer without modifying
- * the read pointer.
+ * Gets a binary encoded string of the bytes from this buffer without
+ * modifying the read pointer.
  *
  * @param count the number of bytes to get, omit to get all.
  *
- * @return a string full of UTF-8 encoded characters.
+ * @return a string full of binary encoded characters.
  */
 util.ByteStringBuffer.prototype.bytes = function(count) {
   return (typeof(count) === 'undefined' ?
@@ -24481,11 +23880,12 @@ util.DataBuffer.prototype.getSignedInt = function(n) {
 };
 
 /**
- * Reads bytes out into a UTF-8 string and clears them from the buffer.
+ * Reads bytes out as a binary encoded string and clears them from the
+ * buffer.
  *
  * @param count the number of bytes to read, undefined or null for all.
  *
- * @return a UTF-8 string of bytes.
+ * @return a binary encoded string of bytes.
  */
 util.DataBuffer.prototype.getBytes = function(count) {
   // TODO: deprecate this method, it is poorly named and
@@ -24508,12 +23908,12 @@ util.DataBuffer.prototype.getBytes = function(count) {
 };
 
 /**
- * Gets a UTF-8 encoded string of the bytes from this buffer without modifying
- * the read pointer.
+ * Gets a binary encoded string of the bytes from this buffer without
+ * modifying the read pointer.
  *
  * @param count the number of bytes to get, omit to get all.
  *
- * @return a string full of UTF-8 encoded characters.
+ * @return a string full of binary encoded characters.
  */
 util.DataBuffer.prototype.bytes = function(count) {
   // TODO: deprecate this method, it is poorly named, add "getString()"
@@ -24660,12 +24060,13 @@ util.DataBuffer.prototype.toString = function(encoding) {
 /** End Buffer w/UInt8Array backing */
 
 /**
- * Creates a buffer that stores bytes. A value may be given to put into the
- * buffer that is either a string of bytes or a UTF-16 string that will
- * be encoded using UTF-8 (to do the latter, specify 'utf8' as the encoding).
+ * Creates a buffer that stores bytes. A value may be given to populate the
+ * buffer with data. This value can either be string of encoded bytes or a
+ * regular string of characters. When passing a string of binary encoded
+ * bytes, the encoding `raw` should be given. This is also the default. When
+ * passing a string of characters, the encoding `utf8` should be given.
  *
- * @param [input] the bytes to wrap (as a string) or a UTF-16 string to encode
- *          as UTF-8.
+ * @param [input] a string with encoded bytes to store in the buffer.
  * @param [encoding] (default: 'raw', other: 'utf8').
  */
 util.createBuffer = function(input, encoding) {
@@ -24894,24 +24295,27 @@ util.decode64 = function(input) {
 };
 
 /**
- * UTF-8 encodes the given UTF-16 encoded string (a standard JavaScript
- * string). Non-ASCII characters will be encoded as multiple bytes according
- * to UTF-8.
+ * Encodes the given string of characters (a standard JavaScript
+ * string) as a binary encoded string where the bytes represent
+ * a UTF-8 encoded string of characters. Non-ASCII characters will be
+ * encoded as multiple bytes according to UTF-8.
  *
- * @param str the string to encode.
+ * @param str a standard string of characters to encode.
  *
- * @return the UTF-8 encoded string.
+ * @return the binary encoded string.
  */
 util.encodeUtf8 = function(str) {
   return unescape(encodeURIComponent(str));
 };
 
 /**
- * Decodes a UTF-8 encoded string into a UTF-16 string.
+ * Decodes a binary encoded string that contains bytes that
+ * represent a UTF-8 encoded string of characters -- into a
+ * string of characters (a standard JavaScript string).
  *
- * @param str the string to decode.
+ * @param str the binary encoded string to decode.
  *
- * @return the UTF-16 encoded string (standard JavaScript string).
+ * @return the resulting standard string of characters.
  */
 util.decodeUtf8 = function(str) {
   return decodeURIComponent(escape(str));
@@ -25505,354 +24909,6 @@ util.clearItems = function(api, id, location) {
 };
 
 /**
- * Parses the scheme, host, and port from an http(s) url.
- *
- * @param str the url string.
- *
- * @return the parsed url object or null if the url is invalid.
- */
-util.parseUrl = function(str) {
-  // FIXME: this regex looks a bit broken
-  var regex = /^(https?):\/\/([^:&^\/]*):?(\d*)(.*)$/g;
-  regex.lastIndex = 0;
-  var m = regex.exec(str);
-  var url = (m === null) ? null : {
-    full: str,
-    scheme: m[1],
-    host: m[2],
-    port: m[3],
-    path: m[4]
-  };
-  if(url) {
-    url.fullHost = url.host;
-    if(url.port) {
-      if(url.port !== 80 && url.scheme === 'http') {
-        url.fullHost += ':' + url.port;
-      } else if(url.port !== 443 && url.scheme === 'https') {
-        url.fullHost += ':' + url.port;
-      }
-    } else if(url.scheme === 'http') {
-      url.port = 80;
-    } else if(url.scheme === 'https') {
-      url.port = 443;
-    }
-    url.full = url.scheme + '://' + url.fullHost;
-  }
-  return url;
-};
-
-/* Storage for query variables */
-var _queryVariables = null;
-
-/**
- * Returns the window location query variables. Query is parsed on the first
- * call and the same object is returned on subsequent calls. The mapping
- * is from keys to an array of values. Parameters without values will have
- * an object key set but no value added to the value array. Values are
- * unescaped.
- *
- * ...?k1=v1&k2=v2:
- * {
- *   "k1": ["v1"],
- *   "k2": ["v2"]
- * }
- *
- * ...?k1=v1&k1=v2:
- * {
- *   "k1": ["v1", "v2"]
- * }
- *
- * ...?k1=v1&k2:
- * {
- *   "k1": ["v1"],
- *   "k2": []
- * }
- *
- * ...?k1=v1&k1:
- * {
- *   "k1": ["v1"]
- * }
- *
- * ...?k1&k1:
- * {
- *   "k1": []
- * }
- *
- * @param query the query string to parse (optional, default to cached
- *          results from parsing window location search query).
- *
- * @return object mapping keys to variables.
- */
-util.getQueryVariables = function(query) {
-  var parse = function(q) {
-    var rval = {};
-    var kvpairs = q.split('&');
-    for(var i = 0; i < kvpairs.length; i++) {
-      var pos = kvpairs[i].indexOf('=');
-      var key;
-      var val;
-      if(pos > 0) {
-        key = kvpairs[i].substring(0, pos);
-        val = kvpairs[i].substring(pos + 1);
-      } else {
-        key = kvpairs[i];
-        val = null;
-      }
-      if(!(key in rval)) {
-        rval[key] = [];
-      }
-      // disallow overriding object prototype keys
-      if(!(key in Object.prototype) && val !== null) {
-        rval[key].push(unescape(val));
-      }
-    }
-    return rval;
-  };
-
-   var rval;
-   if(typeof(query) === 'undefined') {
-     // set cached variables if needed
-     if(_queryVariables === null) {
-       if(typeof(window) !== 'undefined' && window.location && window.location.search) {
-          // parse window search query
-          _queryVariables = parse(window.location.search.substring(1));
-       } else {
-          // no query variables available
-          _queryVariables = {};
-       }
-     }
-     rval = _queryVariables;
-   } else {
-     // parse given query
-     rval = parse(query);
-   }
-   return rval;
-};
-
-/**
- * Parses a fragment into a path and query. This method will take a URI
- * fragment and break it up as if it were the main URI. For example:
- *    /bar/baz?a=1&b=2
- * results in:
- *    {
- *       path: ["bar", "baz"],
- *       query: {"k1": ["v1"], "k2": ["v2"]}
- *    }
- *
- * @return object with a path array and query object.
- */
-util.parseFragment = function(fragment) {
-  // default to whole fragment
-  var fp = fragment;
-  var fq = '';
-  // split into path and query if possible at the first '?'
-  var pos = fragment.indexOf('?');
-  if(pos > 0) {
-    fp = fragment.substring(0, pos);
-    fq = fragment.substring(pos + 1);
-  }
-  // split path based on '/' and ignore first element if empty
-  var path = fp.split('/');
-  if(path.length > 0 && path[0] === '') {
-    path.shift();
-  }
-  // convert query into object
-  var query = (fq === '') ? {} : util.getQueryVariables(fq);
-
-  return {
-    pathString: fp,
-    queryString: fq,
-    path: path,
-    query: query
-  };
-};
-
-/**
- * Makes a request out of a URI-like request string. This is intended to
- * be used where a fragment id (after a URI '#') is parsed as a URI with
- * path and query parts. The string should have a path beginning and
- * delimited by '/' and optional query parameters following a '?'. The
- * query should be a standard URL set of key value pairs delimited by
- * '&'. For backwards compatibility the initial '/' on the path is not
- * required. The request object has the following API, (fully described
- * in the method code):
- *    {
- *       path: <the path string part>.
- *       query: <the query string part>,
- *       getPath(i): get part or all of the split path array,
- *       getQuery(k, i): get part or all of a query key array,
- *       getQueryLast(k, _default): get last element of a query key array.
- *    }
- *
- * @return object with request parameters.
- */
-util.makeRequest = function(reqString) {
-  var frag = util.parseFragment(reqString);
-  var req = {
-    // full path string
-    path: frag.pathString,
-    // full query string
-    query: frag.queryString,
-    /**
-     * Get path or element in path.
-     *
-     * @param i optional path index.
-     *
-     * @return path or part of path if i provided.
-     */
-    getPath: function(i) {
-      return (typeof(i) === 'undefined') ? frag.path : frag.path[i];
-    },
-    /**
-     * Get query, values for a key, or value for a key index.
-     *
-     * @param k optional query key.
-     * @param i optional query key index.
-     *
-     * @return query, values for a key, or value for a key index.
-     */
-    getQuery: function(k, i) {
-      var rval;
-      if(typeof(k) === 'undefined') {
-        rval = frag.query;
-      } else {
-        rval = frag.query[k];
-        if(rval && typeof(i) !== 'undefined') {
-           rval = rval[i];
-        }
-      }
-      return rval;
-    },
-    getQueryLast: function(k, _default) {
-      var rval;
-      var vals = req.getQuery(k);
-      if(vals) {
-        rval = vals[vals.length - 1];
-      } else {
-        rval = _default;
-      }
-      return rval;
-    }
-  };
-  return req;
-};
-
-/**
- * Makes a URI out of a path, an object with query parameters, and a
- * fragment. Uses jQuery.param() internally for query string creation.
- * If the path is an array, it will be joined with '/'.
- *
- * @param path string path or array of strings.
- * @param query object with query parameters. (optional)
- * @param fragment fragment string. (optional)
- *
- * @return string object with request parameters.
- */
-util.makeLink = function(path, query, fragment) {
-  // join path parts if needed
-  path = jQuery.isArray(path) ? path.join('/') : path;
-
-  var qstr = jQuery.param(query || {});
-  fragment = fragment || '';
-  return path +
-    ((qstr.length > 0) ? ('?' + qstr) : '') +
-    ((fragment.length > 0) ? ('#' + fragment) : '');
-};
-
-/**
- * Follows a path of keys deep into an object hierarchy and set a value.
- * If a key does not exist or it's value is not an object, create an
- * object in it's place. This can be destructive to a object tree if
- * leaf nodes are given as non-final path keys.
- * Used to avoid exceptions from missing parts of the path.
- *
- * @param object the starting object.
- * @param keys an array of string keys.
- * @param value the value to set.
- */
-util.setPath = function(object, keys, value) {
-  // need to start at an object
-  if(typeof(object) === 'object' && object !== null) {
-    var i = 0;
-    var len = keys.length;
-    while(i < len) {
-      var next = keys[i++];
-      if(i == len) {
-        // last
-        object[next] = value;
-      } else {
-        // more
-        var hasNext = (next in object);
-        if(!hasNext ||
-          (hasNext && typeof(object[next]) !== 'object') ||
-          (hasNext && object[next] === null)) {
-          object[next] = {};
-        }
-        object = object[next];
-      }
-    }
-  }
-};
-
-/**
- * Follows a path of keys deep into an object hierarchy and return a value.
- * If a key does not exist, create an object in it's place.
- * Used to avoid exceptions from missing parts of the path.
- *
- * @param object the starting object.
- * @param keys an array of string keys.
- * @param _default value to return if path not found.
- *
- * @return the value at the path if found, else default if given, else
- *         undefined.
- */
-util.getPath = function(object, keys, _default) {
-  var i = 0;
-  var len = keys.length;
-  var hasNext = true;
-  while(hasNext && i < len &&
-    typeof(object) === 'object' && object !== null) {
-    var next = keys[i++];
-    hasNext = next in object;
-    if(hasNext) {
-      object = object[next];
-    }
-  }
-  return (hasNext ? object : _default);
-};
-
-/**
- * Follow a path of keys deep into an object hierarchy and delete the
- * last one. If a key does not exist, do nothing.
- * Used to avoid exceptions from missing parts of the path.
- *
- * @param object the starting object.
- * @param keys an array of string keys.
- */
-util.deletePath = function(object, keys) {
-  // need to start at an object
-  if(typeof(object) === 'object' && object !== null) {
-    var i = 0;
-    var len = keys.length;
-    while(i < len) {
-      var next = keys[i++];
-      if(i == len) {
-        // last
-        delete object[next];
-      } else {
-        // more
-        if(!(next in object) ||
-          (typeof(object[next]) !== 'object') ||
-          (object[next] === null)) {
-           break;
-        }
-        object = object[next];
-      }
-    }
-  }
-};
-
-/**
  * Check if an object is empty.
  *
  * Taken from:
@@ -26246,7 +25302,7 @@ util.estimateCores = function(options, callback) {
 };
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],require("timers").setImmediate)
-},{"./baseN":10,"./forge":16,"_process":50,"buffer":6,"timers":51}],49:[function(require,module,exports){
+},{"./baseN":11,"./forge":16,"_process":49,"buffer":6,"timers":50}],48:[function(require,module,exports){
 /**
  * Javascript implementation of X.509 and related components (such as
  * Certification Signing Requests) of a Public Key Infrastructure.
@@ -26939,6 +25995,101 @@ var _readSignatureParameters = function(oid, obj, fillDefaults) {
 };
 
 /**
+ * Create signature digest for OID.
+ *
+ * @param options
+ *   signatureOid: the OID specifying the signature algorithm.
+ *   type: a human readable type for error messages
+ * @return a created md instance. throws if unknown oid.
+ */
+var _createSignatureDigest = function(options) {
+  switch(oids[options.signatureOid]) {
+    case 'sha1WithRSAEncryption':
+    // deprecated alias
+    case 'sha1WithRSASignature':
+      return forge.md.sha1.create();
+    case 'md5WithRSAEncryption':
+      return forge.md.md5.create();
+    case 'sha256WithRSAEncryption':
+      return forge.md.sha256.create();
+    case 'sha384WithRSAEncryption':
+      return forge.md.sha384.create();
+    case 'sha512WithRSAEncryption':
+      return forge.md.sha512.create();
+    case 'RSASSA-PSS':
+      return forge.md.sha256.create();
+    default:
+      var error = new Error(
+        'Could not compute ' + options.type + ' digest. ' +
+        'Unknown signature OID.');
+      error.signatureOid = options.signatureOid;
+      throw error;
+  }
+};
+
+/**
+ * Verify signature on certificate or CSR.
+ *
+ * @param options:
+ *   certificate the certificate or CSR to verify.
+ *   md the signature digest.
+ *   signature the signature
+ * @return a created md instance. throws if unknown oid.
+ */
+var _verifySignature = function(options) {
+  var cert = options.certificate;
+  var scheme;
+
+  switch(cert.signatureOid) {
+    case oids.sha1WithRSAEncryption:
+    // deprecated alias
+    case oids.sha1WithRSASignature:
+      /* use PKCS#1 v1.5 padding scheme */
+      break;
+    case oids['RSASSA-PSS']:
+      var hash, mgf;
+
+      /* initialize mgf */
+      hash = oids[cert.signatureParameters.mgf.hash.algorithmOid];
+      if(hash === undefined || forge.md[hash] === undefined) {
+        var error = new Error('Unsupported MGF hash function.');
+        error.oid = cert.signatureParameters.mgf.hash.algorithmOid;
+        error.name = hash;
+        throw error;
+      }
+
+      mgf = oids[cert.signatureParameters.mgf.algorithmOid];
+      if(mgf === undefined || forge.mgf[mgf] === undefined) {
+        var error = new Error('Unsupported MGF function.');
+        error.oid = cert.signatureParameters.mgf.algorithmOid;
+        error.name = mgf;
+        throw error;
+      }
+
+      mgf = forge.mgf[mgf].create(forge.md[hash].create());
+
+      /* initialize hash function */
+      hash = oids[cert.signatureParameters.hash.algorithmOid];
+      if(hash === undefined || forge.md[hash] === undefined) {
+        var error = new Error('Unsupported RSASSA-PSS hash function.');
+        error.oid = cert.signatureParameters.hash.algorithmOid;
+        error.name = hash;
+        throw error;
+      }
+
+      scheme = forge.pss.create(
+        forge.md[hash].create(), mgf, cert.signatureParameters.saltLength
+      );
+      break;
+  }
+
+  // verify signature on cert using public key
+  return cert.publicKey.verify(
+    options.md.digest().getBytes(), options.signature, scheme
+  );
+};
+
+/**
  * Converts an X.509 certificate from PEM format.
  *
  * Note: If the certificate is to be verified then compute hash should
@@ -27318,43 +26469,18 @@ pki.createCertificate = function() {
         'The parent certificate did not issue the given child ' +
         'certificate; the child certificate\'s issuer does not match the ' +
         'parent\'s subject.');
-      error.expectedIssuer = issuer.attributes;
-      error.actualIssuer = subject.attributes;
+      error.expectedIssuer = subject.attributes;
+      error.actualIssuer = issuer.attributes;
       throw error;
     }
 
     var md = child.md;
     if(md === null) {
-      // check signature OID for supported signature types
-      if(child.signatureOid in oids) {
-        var oid = oids[child.signatureOid];
-        switch(oid) {
-          case 'sha1WithRSAEncryption':
-            md = forge.md.sha1.create();
-            break;
-          case 'md5WithRSAEncryption':
-            md = forge.md.md5.create();
-            break;
-          case 'sha256WithRSAEncryption':
-            md = forge.md.sha256.create();
-            break;
-          case 'sha384WithRSAEncryption':
-            md = forge.md.sha384.create();
-            break;
-          case 'sha512WithRSAEncryption':
-            md = forge.md.sha512.create();
-            break;
-          case 'RSASSA-PSS':
-            md = forge.md.sha256.create();
-            break;
-        }
-      }
-      if(md === null) {
-        var error = new Error('Could not compute certificate digest. ' +
-          'Unknown signature OID.');
-        error.signatureOid = child.signatureOid;
-        throw error;
-      }
+      // create digest for OID signature types
+      md = _createSignatureDigest({
+        signatureOid: child.signatureOid,
+        type: 'certificate'
+      });
 
       // produce DER formatted TBSCertificate and digest it
       var tbsCertificate = child.tbsCertificate || pki.getTBSCertificate(child);
@@ -27363,52 +26489,9 @@ pki.createCertificate = function() {
     }
 
     if(md !== null) {
-      var scheme;
-
-      switch(child.signatureOid) {
-        case oids.sha1WithRSAEncryption:
-          scheme = undefined; /* use PKCS#1 v1.5 padding scheme */
-          break;
-        case oids['RSASSA-PSS']:
-          var hash, mgf;
-
-          /* initialize mgf */
-          hash = oids[child.signatureParameters.mgf.hash.algorithmOid];
-          if(hash === undefined || forge.md[hash] === undefined) {
-            var error = new Error('Unsupported MGF hash function.');
-            error.oid = child.signatureParameters.mgf.hash.algorithmOid;
-            error.name = hash;
-            throw error;
-          }
-
-          mgf = oids[child.signatureParameters.mgf.algorithmOid];
-          if(mgf === undefined || forge.mgf[mgf] === undefined) {
-            var error = new Error('Unsupported MGF function.');
-            error.oid = child.signatureParameters.mgf.algorithmOid;
-            error.name = mgf;
-            throw error;
-          }
-
-          mgf = forge.mgf[mgf].create(forge.md[hash].create());
-
-          /* initialize hash function */
-          hash = oids[child.signatureParameters.hash.algorithmOid];
-          if(hash === undefined || forge.md[hash] === undefined) {
-            throw {
-              message: 'Unsupported RSASSA-PSS hash function.',
-              oid: child.signatureParameters.hash.algorithmOid,
-              name: hash
-            };
-          }
-
-          scheme = forge.pss.create(forge.md[hash].create(), mgf,
-            child.signatureParameters.saltLength);
-          break;
-      }
-
-      // verify signature on cert using public key
-      rval = cert.publicKey.verify(
-        md.digest().getBytes(), child.signature, scheme);
+      rval = _verifySignature({
+        certificate: cert, md: md, signature: child.signature
+      });
     }
 
     return rval;
@@ -27582,37 +26665,11 @@ pki.certificateFromAsn1 = function(obj, computeHash) {
   cert.tbsCertificate = capture.tbsCertificate;
 
   if(computeHash) {
-    // check signature OID for supported signature types
-    cert.md = null;
-    if(cert.signatureOid in oids) {
-      var oid = oids[cert.signatureOid];
-      switch(oid) {
-        case 'sha1WithRSAEncryption':
-          cert.md = forge.md.sha1.create();
-          break;
-        case 'md5WithRSAEncryption':
-          cert.md = forge.md.md5.create();
-          break;
-        case 'sha256WithRSAEncryption':
-          cert.md = forge.md.sha256.create();
-          break;
-        case 'sha384WithRSAEncryption':
-          cert.md = forge.md.sha384.create();
-          break;
-        case 'sha512WithRSAEncryption':
-          cert.md = forge.md.sha512.create();
-          break;
-        case 'RSASSA-PSS':
-          cert.md = forge.md.sha256.create();
-          break;
-      }
-    }
-    if(cert.md === null) {
-      var error = new Error('Could not compute certificate digest. ' +
-        'Unknown signature OID.');
-      error.signatureOid = cert.signatureOid;
-      throw error;
-    }
+    // create digest for OID signature type
+    cert.md = _createSignatureDigest({
+      signatureOid: cert.signatureOid,
+      type: 'certificate'
+    });
 
     // produce DER formatted TBSCertificate and digest it
     var bytes = asn1.toDer(cert.tbsCertificate);
@@ -27621,6 +26678,8 @@ pki.certificateFromAsn1 = function(obj, computeHash) {
 
   // handle issuer, build issuer message digest
   var imd = forge.md.sha1.create();
+  var ibytes = asn1.toDer(capture.certIssuer);
+  imd.update(ibytes.getBytes());
   cert.issuer.getField = function(sn) {
     return _getAttribute(cert.issuer, sn);
   };
@@ -27628,7 +26687,7 @@ pki.certificateFromAsn1 = function(obj, computeHash) {
     _fillMissingFields([attr]);
     cert.issuer.attributes.push(attr);
   };
-  cert.issuer.attributes = pki.RDNAttributesAsArray(capture.certIssuer, imd);
+  cert.issuer.attributes = pki.RDNAttributesAsArray(capture.certIssuer);
   if(capture.certIssuerUniqueId) {
     cert.issuer.uniqueId = capture.certIssuerUniqueId;
   }
@@ -27636,6 +26695,8 @@ pki.certificateFromAsn1 = function(obj, computeHash) {
 
   // handle subject, build subject message digest
   var smd = forge.md.sha1.create();
+  var sbytes = asn1.toDer(capture.certSubject);
+  smd.update(sbytes.getBytes());
   cert.subject.getField = function(sn) {
     return _getAttribute(cert.subject, sn);
   };
@@ -27643,7 +26704,7 @@ pki.certificateFromAsn1 = function(obj, computeHash) {
     _fillMissingFields([attr]);
     cert.subject.attributes.push(attr);
   };
-  cert.subject.attributes = pki.RDNAttributesAsArray(capture.certSubject, smd);
+  cert.subject.attributes = pki.RDNAttributesAsArray(capture.certSubject);
   if(capture.certSubjectUniqueId) {
     cert.subject.uniqueId = capture.certSubjectUniqueId;
   }
@@ -27926,37 +26987,11 @@ pki.certificationRequestFromAsn1 = function(obj, computeHash) {
   csr.certificationRequestInfo = capture.certificationRequestInfo;
 
   if(computeHash) {
-    // check signature OID for supported signature types
-    csr.md = null;
-    if(csr.signatureOid in oids) {
-      var oid = oids[csr.signatureOid];
-      switch(oid) {
-        case 'sha1WithRSAEncryption':
-          csr.md = forge.md.sha1.create();
-          break;
-        case 'md5WithRSAEncryption':
-          csr.md = forge.md.md5.create();
-          break;
-        case 'sha256WithRSAEncryption':
-          csr.md = forge.md.sha256.create();
-          break;
-        case 'sha384WithRSAEncryption':
-          csr.md = forge.md.sha384.create();
-          break;
-        case 'sha512WithRSAEncryption':
-          csr.md = forge.md.sha512.create();
-          break;
-        case 'RSASSA-PSS':
-          csr.md = forge.md.sha256.create();
-          break;
-      }
-    }
-    if(csr.md === null) {
-      var error = new Error('Could not compute certification request digest. ' +
-        'Unknown signature OID.');
-      error.signatureOid = csr.signatureOid;
-      throw error;
-    }
+    // create digest for OID signature type
+    csr.md = _createSignatureDigest({
+      signatureOid: csr.signatureOid,
+      type: 'certification request'
+    });
 
     // produce DER formatted CertificationRequestInfo and digest it
     var bytes = asn1.toDer(csr.certificationRequestInfo);
@@ -28096,38 +27131,10 @@ pki.createCertificationRequest = function() {
 
     var md = csr.md;
     if(md === null) {
-      // check signature OID for supported signature types
-      if(csr.signatureOid in oids) {
-        // TODO: create DRY `OID to md` function
-        var oid = oids[csr.signatureOid];
-        switch(oid) {
-          case 'sha1WithRSAEncryption':
-            md = forge.md.sha1.create();
-            break;
-          case 'md5WithRSAEncryption':
-            md = forge.md.md5.create();
-            break;
-          case 'sha256WithRSAEncryption':
-            md = forge.md.sha256.create();
-            break;
-          case 'sha384WithRSAEncryption':
-            md = forge.md.sha384.create();
-            break;
-          case 'sha512WithRSAEncryption':
-            md = forge.md.sha512.create();
-            break;
-          case 'RSASSA-PSS':
-            md = forge.md.sha256.create();
-            break;
-        }
-      }
-      if(md === null) {
-        var error = new Error(
-          'Could not compute certification request digest. ' +
-          'Unknown signature OID.');
-        error.signatureOid = csr.signatureOid;
-        throw error;
-      }
+      md = _createSignatureDigest({
+        signatureOid: csr.signatureOid,
+        type: 'certification request'
+      });
 
       // produce DER formatted CertificationRequestInfo and digest it
       var cri = csr.certificationRequestInfo ||
@@ -28137,51 +27144,9 @@ pki.createCertificationRequest = function() {
     }
 
     if(md !== null) {
-      var scheme;
-
-      switch(csr.signatureOid) {
-        case oids.sha1WithRSAEncryption:
-          /* use PKCS#1 v1.5 padding scheme */
-          break;
-        case oids['RSASSA-PSS']:
-          var hash, mgf;
-
-          /* initialize mgf */
-          hash = oids[csr.signatureParameters.mgf.hash.algorithmOid];
-          if(hash === undefined || forge.md[hash] === undefined) {
-            var error = new Error('Unsupported MGF hash function.');
-            error.oid = csr.signatureParameters.mgf.hash.algorithmOid;
-            error.name = hash;
-            throw error;
-          }
-
-          mgf = oids[csr.signatureParameters.mgf.algorithmOid];
-          if(mgf === undefined || forge.mgf[mgf] === undefined) {
-            var error = new Error('Unsupported MGF function.');
-            error.oid = csr.signatureParameters.mgf.algorithmOid;
-            error.name = mgf;
-            throw error;
-          }
-
-          mgf = forge.mgf[mgf].create(forge.md[hash].create());
-
-          /* initialize hash function */
-          hash = oids[csr.signatureParameters.hash.algorithmOid];
-          if(hash === undefined || forge.md[hash] === undefined) {
-            var error = new Error('Unsupported RSASSA-PSS hash function.');
-            error.oid = csr.signatureParameters.hash.algorithmOid;
-            error.name = hash;
-            throw error;
-          }
-
-          scheme = forge.pss.create(forge.md[hash].create(), mgf,
-            csr.signatureParameters.saltLength);
-          break;
-      }
-
-      // verify signature on csr using its public key
-      rval = csr.publicKey.verify(
-        md.digest().getBytes(), csr.signature, scheme);
+      rval = _verifySignature({
+        certificate: csr, md: md, signature: csr.signature
+      });
     }
 
     return rval;
@@ -29581,7 +28546,7 @@ pki.verifyCertificateChain = function(caStore, chain, options) {
   return true;
 };
 
-},{"./aes":7,"./asn1":9,"./des":14,"./forge":16,"./md":23,"./mgf":25,"./oids":27,"./pem":30,"./pss":38,"./rsa":41,"./util":48}],50:[function(require,module,exports){
+},{"./aes":7,"./asn1":10,"./des":14,"./forge":16,"./md":23,"./mgf":25,"./oids":27,"./pem":30,"./pss":38,"./rsa":41,"./util":47}],49:[function(require,module,exports){
 // shim for using process in browser
 var process = module.exports = {};
 
@@ -29767,7 +28732,7 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
-},{}],51:[function(require,module,exports){
+},{}],50:[function(require,module,exports){
 (function (setImmediate,clearImmediate){
 var nextTick = require('process/browser.js').nextTick;
 var apply = Function.prototype.apply;
@@ -29846,10 +28811,10 @@ exports.clearImmediate = typeof clearImmediate === "function" ? clearImmediate :
   delete immediateIds[id];
 };
 }).call(this,require("timers").setImmediate,require("timers").clearImmediate)
-},{"process/browser.js":50,"timers":51}],52:[function(require,module,exports){
+},{"process/browser.js":49,"timers":50}],51:[function(require,module,exports){
 module.exports={
-    "name": "hybrid-crypto-js",
-    "version": "0.2.4",
+    "name": "@kadughost/hybrid-crypto",
+    "version": "0.2.5",
     "description": "Hybrid (RSA+AES) encryption and decryption toolkit for JavaScript",
     "main": "lib/index.js",
     "scripts": {
@@ -29863,7 +28828,7 @@ module.exports={
     },
     "repository": {
         "type": "git",
-        "url": "https://github.com/juhoen/hybrid-crypto-js.git"
+        "url": "git+https://github.com/juhoen/hybrid-crypto-js.git"
     },
     "keywords": [
         "rsa",
@@ -29873,17 +28838,14 @@ module.exports={
         "node",
         "react-native"
     ],
-    "author": "Juho Enala <juho.enala@gmail.com>",
+    "author": "kaduzinghost",
     "license": "MIT",
-    "bugs": {
-        "url": "https://github.com/juhoen/hybrid-crypto-js/issues"
-    },
-    "homepage": "https://github.com/juhoen/hybrid-crypto-js",
+    "homepage": "https://github.com/KaduGhost/hybrid-crypto-js",
     "dependencies": {
-        "node-forge": "^0.8.5"
+        "node-forge": "^1.2.1"
     },
     "devDependencies": {
-        "@babel/cli": "^7.5.5",
+        "@babel/cli": "^7.16.8",
         "@babel/core": "^7.5.5",
         "@babel/preset-env": "^7.5.5",
         "@babel/preset-flow": "^7.0.0",
@@ -29894,11 +28856,15 @@ module.exports={
         "browserify": "^16.5.0",
         "chai": "^4.1.2",
         "flow-bin": "^0.107.0",
-        "mocha": "^4.0.1",
+        "mocha": "^9.1.4",
         "prettier": "^1.18.2",
         "uglify-js": "^3.2.1"
     },
-    "browserslist": "> 0.25%, not dead"
+    "browserslist": "> 0.25%, not dead",
+    "directories": {
+        "lib": "lib",
+        "test": "test"
+    }
 }
 
 },{}]},{},[5]);
