@@ -1,5 +1,5 @@
 {
-    "name": "@kaduzinghost/hybrid-crypto",
+    "name": "@kadughost/hybrid-crypto",
     "version": "0.2.5",
     "description": "Hybrid (RSA+AES) encryption and decryption toolkit for JavaScript",
     "main": "lib/index.js",
@@ -24,9 +24,12 @@
         "node",
         "react-native"
     ],
-    "author": "kaduzinghost",
+    "author": "Juho Enala <juho.enala@gmail.com>",
     "license": "MIT",
-    "homepage": "https://github.com/KaduGhost/hybrid-crypto-js",
+    "bugs": {
+        "url": "https://github.com/juhoen/hybrid-crypto-js/issues"
+    },
+    "homepage": "https://github.com/juhoen/hybrid-crypto-js",
     "dependencies": {
         "node-forge": "^1.2.1"
     },

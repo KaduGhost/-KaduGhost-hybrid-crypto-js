@@ -28813,7 +28813,7 @@ exports.clearImmediate = typeof clearImmediate === "function" ? clearImmediate :
 }).call(this,require("timers").setImmediate,require("timers").clearImmediate)
 },{"process/browser.js":49,"timers":50}],51:[function(require,module,exports){
 module.exports={
-    "name": "@kadughost/hybrid-crypto",
+    "name": "@kaduzinghost/hybrid-crypto",
     "version": "0.2.5",
     "description": "Hybrid (RSA+AES) encryption and decryption toolkit for JavaScript",
     "main": "lib/index.js",
